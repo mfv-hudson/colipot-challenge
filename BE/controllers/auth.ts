@@ -7,12 +7,12 @@ const prisma = new PrismaClient();
 const secret = process.env.JWT_SECRET!;
 
 export const register = async (req: Request, res: Response) => {
-  const { email, password } = req.body;
+  const { email, password, departmentId } = req.body;
   const hashedPassword = await bcrypt.hash(password, 10);
-  const user = await prisma.user.create({
-    data: { email, password: hashedPassword },
+  await prisma.user.create({
+    data: { email, password: hashedPassword, departmentId },
   });
-  res.json(user);
+  res.json('Ok');
 };
 
 export const login = async (req: Request, res: Response) => {
