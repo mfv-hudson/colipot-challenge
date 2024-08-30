@@ -28,3 +28,38 @@ export const generateCheckinQRCode = async (req: AuthenticatedRequest, res: Resp
     res.status(500).json({ status: 'error', message: 'Internal server error' });
   }
 };
+
+export const generateBookingQRCode = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { seatId, bookingDate } = req.body;
+
+    if (!seatId || !bookingDate) {
+      return res.status(400).json({ status: 'error', message: 'seatId and bookingDate are required' });
+    }
+
+    // Check if the seat exists
+    const seat = await prisma.seat.findUnique({ where: { id: seatId } });
+    if (!seat) {
+      return res.status(404).json({ status: 'error', message: 'Seat not found' });
+    }
+
+    const existingBooking = await prisma.userBooking.findFirst({
+      where: {
+        seatId,
+        bookingDate: new Date(bookingDate),
+      },
+    });
+
+    if (existingBooking) {
+      return res.status(400).json({ status: 'error', message: 'Seat is already booked for the given date' });
+    }
+
+    // Create the QR code data
+    const qrCodeData = JSON.stringify({ seatId, bookingDate });
+    const qrCodeUrl = await QRCode.toDataURL(qrCodeData);
+
+    res.status(201).json({ status: 'success', qrCodeUrl });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: 'Internal server error' });
+  }
+};

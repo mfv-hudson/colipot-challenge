@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "UserBooking" ADD COLUMN     "bookingDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;

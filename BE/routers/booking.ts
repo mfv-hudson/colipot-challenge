@@ -1,10 +1,9 @@
 import express from 'express';
-import { book, checkin, checkout } from '../controllers/booking';
+import { bookByQRCode } from '../controllers/booking';
+import { authentication } from '../middleware/auth';
 
 const router = express.Router();
 
-router.post('/book', book);
-router.post('/checkin', checkin);
-router.post('/checkout', checkout);
+router.post('/book-by-qrcode', [authentication], bookByQRCode);
 
 export default router;

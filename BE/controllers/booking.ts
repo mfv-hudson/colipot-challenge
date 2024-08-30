@@ -1,59 +1,64 @@
-// import { PrismaClient } from '@prisma/client';
-// import { Request, Response } from 'express';
-// import { body, validationResult } from 'express-validator';
+import { PrismaClient } from '@prisma/client';
+import { Request, Response } from 'express';
+import Joi from 'joi';
+import QRCode from 'qrcode';
+import { AuthenticatedRequest } from '../middleware/auth';
 
-// const prisma = new PrismaClient();
+const prisma = new PrismaClient();
 
-// export const book = [
-//   body('userId').isInt().withMessage('User ID must be an integer'),
-//   body('seatId').isInt().withMessage('Seat ID must be an integer'),
-//   async (req: Request, res: Response) => {
-//     const errors = validationResult(req);
-//     if (!errors.isEmpty()) {
-//       return res.status(400).json({ errors: errors.array() });
-//     }
+export const bookByQRCode = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { qrCodeData } = req.body;
 
-//     const { userId, seatId } = req.body;
-//     const booking = await prisma.userBooking.create({
-//       data: {
-//         user: { connect: { id: userId } },
-//         seat: { connect: { id: seatId } },
-//       },
-//     });
-//     res.json(booking);
-//   }
-// ];
+    // Decode the QR code data
+    const decodedData = JSON.parse(await QRCode.toString(qrCodeData, { type: 'utf8' }));
 
-// export const checkin = [
-//   body('bookingId').isInt().withMessage('Booking ID must be an integer'),
-//   async (req: Request, res: Response) => {
-//     const errors = validationResult(req);
-//     if (!errors.isEmpty()) {
-//       return res.status(400).json({ errors: errors.array() });
-//     }
+    const { seatId, bookingDate } = decodedData;
 
-//     const { bookingId } = req.body;
-//     const booking = await prisma.userBooking.update({
-//       where: { id: bookingId },
-//       data: { checkIn: new Date() },
-//     });
-//     res.json(booking);
-//   }
-// ];
+    if (!seatId || !bookingDate) {
+      return res.status(400).json({ status: 'error', message: 'seatId and bookingDate are required' });
+    }
 
-// export const checkout = [
-//   body('bookingId').isInt().withMessage('Booking ID must be an integer'),
-//   async (req: Request, res: Response) => {
-//     const errors = validationResult(req);
-//     if (!errors.isEmpty()) {
-//       return res.status(400).json({ errors: errors.array() });
-//     }
+    // Check if the seat exists
+    const seat = await prisma.seat.findUnique({ where: { id: seatId } });
+    if (!seat) {
+      return res.status(404).json({ status: 'error', message: 'Seat not found' });
+    }
 
-//     const { bookingId } = req.body;
-//     const booking = await prisma.userBooking.update({
-//       where: { id: bookingId },
-//       data: { checkOut: new Date() },
-//     });
-//     res.json(booking);
-//   }
-// ];
+    const userExistingBooking = await prisma.userBooking.findFirst({
+      where: {
+        userId: req.user.id,
+        bookingDate: new Date(bookingDate),
+      },
+    });
+
+    if (userExistingBooking) {
+      return res.status(400).json({ status: 'error', message: 'User has already booked a seat on the given date' });
+    }
+
+    // Check if the seat is available for the given bookingDate
+    const existingBooking = await prisma.userBooking.findFirst({
+      where: {
+        seatId,
+        bookingDate: new Date(bookingDate),
+      },
+    });
+
+    if (existingBooking) {
+      return res.status(400).json({ status: 'error', message: 'Seat is already booked for the given date' });
+    }
+
+    // Create the booking
+    const booking = await prisma.userBooking.create({
+      data: {
+        userId: req.user.id, // Assuming user ID is available in the request object
+        seatId,
+        bookingDate: new Date(bookingDate),
+      },
+    });
+
+    res.status(201).json({ status: 'success', booking });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: 'Internal server error' });
+  }
+};
