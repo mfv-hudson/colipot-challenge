@@ -62,3 +62,43 @@ export const bookByQRCode = async (req: AuthenticatedRequest, res: Response) => 
     res.status(500).json({ status: 'error', message: 'Internal server error' });
   }
 };
+
+export const bookSeat = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.user;
+    const { seatId, bookingDate } = req.body;
+
+    // Validate seatId and bookingDate
+    if (!seatId || isNaN(parseInt(seatId, 10))) {
+      return res.status(400).json({ status: 'error', message: 'Invalid seat ID' });
+    }
+    if (!bookingDate || isNaN(Date.parse(bookingDate))) {
+      return res.status(400).json({ status: 'error', message: 'Invalid booking date' });
+    }
+
+    // Check if the seat is already booked for the given date
+    const existingBooking = await prisma.userBooking.findFirst({
+      where: {
+        seatId: parseInt(seatId, 10),
+        bookingDate: new Date(bookingDate),
+      },
+    });
+
+    if (existingBooking) {
+      return res.status(400).json({ status: 'error', message: 'Seat already booked for the given date' });
+    }
+
+    // Create a new booking record
+    const booking = await prisma.userBooking.create({
+      data: {
+        userId: id,
+        seatId: parseInt(seatId, 10),
+        bookingDate: new Date(bookingDate),
+      },
+    });
+
+    res.json({ status: 'success', booking });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: 'Internal server error' });
+  }
+};
