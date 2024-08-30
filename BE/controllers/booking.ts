@@ -1,6 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { Request, Response } from 'express';
-import Joi from 'joi';
+import { Response } from 'express';
 import QRCode from 'qrcode';
 import { AuthenticatedRequest } from '../middleware/auth';
 
@@ -23,6 +22,15 @@ export const bookByQRCode = async (req: AuthenticatedRequest, res: Response) => 
     const seat = await prisma.seat.findUnique({ where: { id: seatId } });
     if (!seat) {
       return res.status(404).json({ status: 'error', message: 'Seat not found' });
+    }
+
+    const bookingDateObj = new Date(bookingDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set time to the start of the day
+
+    // Check if the booking date is in the past
+    if (bookingDateObj < today) {
+      return res.status(400).json({ status: 'error', message: 'Booking date cannot be in the past' });
     }
 
     const userExistingBooking = await prisma.userBooking.findFirst({
@@ -76,11 +84,20 @@ export const bookSeat = async (req: AuthenticatedRequest, res: Response) => {
       return res.status(400).json({ status: 'error', message: 'Invalid booking date' });
     }
 
+    const bookingDateObj = new Date(bookingDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set time to the start of the day
+
+    // Check if the booking date is in the past
+    if (bookingDateObj < today) {
+      return res.status(400).json({ status: 'error', message: 'Booking date cannot be in the past' });
+    }
+
     // Check if the seat is already booked for the given date
     const existingBooking = await prisma.userBooking.findFirst({
       where: {
         seatId: parseInt(seatId, 10),
-        bookingDate: new Date(bookingDate),
+        bookingDate: bookingDateObj,
       },
     });
 
@@ -93,7 +110,7 @@ export const bookSeat = async (req: AuthenticatedRequest, res: Response) => {
       data: {
         userId: id,
         seatId: parseInt(seatId, 10),
-        bookingDate: new Date(bookingDate),
+        bookingDate: bookingDateObj,
       },
     });
 
