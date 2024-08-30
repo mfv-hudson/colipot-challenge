@@ -30,8 +30,6 @@ export const listSeats = async (req: Request, res: Response) => {
       const endDate = new Date(startDate);
       endDate.setDate(startDate.getDate() + 1);
 
-      console.log(startDate, endDate)
-
       userBookingsQuery = {
         where: {
           bookingDate: {
@@ -43,7 +41,7 @@ export const listSeats = async (req: Request, res: Response) => {
     }
 
     // Fetch all userBookings
-    const userBookings = await prisma.userBooking.findMany(userBookingsQuery);
+    const userBookings = await prisma.userBooking.findMany({...userBookingsQuery, include: {user: true}});
 
     // Return both seats and userBookings
     res.json({ seats, userBookings });
