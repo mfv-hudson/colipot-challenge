@@ -93,11 +93,37 @@ export const bookSeat = async (req: AuthenticatedRequest, res: Response) => {
       return res.status(400).json({ status: 'error', message: 'Booking date cannot be in the past' });
     }
 
+    // Check if the user has already checked in on the same day
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const existingCheckin = await prisma.checkin.findFirst({
+      where: {
+        userId: id,
+        time: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
+      },
+    });
+
+    // Determine the booking status
+    const bookingStatus = existingCheckin ? 'CHECKED' : 'BOOKED';
+
     // Check if the seat is already booked for the given date
     const existingBooking = await prisma.userBooking.findFirst({
       where: {
-        seatId: parseInt(seatId, 10),
-        bookingDate: bookingDateObj,
+        userId: id,
+        status: {
+          not: 'CANCELED',
+        },
+        bookingDate: {
+          gte: startOfDay,
+          lt: endOfDay,
+        },
       },
     });
 
@@ -105,13 +131,44 @@ export const bookSeat = async (req: AuthenticatedRequest, res: Response) => {
       return res.status(400).json({ status: 'error', message: 'Seat already booked for the given date' });
     }
 
-    // Create a new booking record
-    const booking = await prisma.userBooking.create({
-      data: {
-        userId: id,
-        seatId: parseInt(seatId, 10),
-        bookingDate: bookingDateObj,
+   // Create the booking
+   const booking = await prisma.userBooking.create({
+    data: {
+      userId: id,
+      seatId: seatId,
+      bookingDate: new Date(bookingDate),
+      status: bookingStatus,
+    },
+  });
+
+  res.json({ status: 'success', booking });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: 'Internal server error' });
+  }
+};
+
+export const cancelBooking = async (req: AuthenticatedRequest, res: Response) => {
+  const { bookingId } = req.body;
+  const userId = req.user.id;
+
+  try {
+    // Check if the booking exists, belongs to the user, and is in BOOKED status
+    const existingBooking = await prisma.userBooking.findFirst({
+      where: {
+        id: bookingId,
+        userId: userId,
+        status: 'BOOKED',
       },
+    });
+
+    if (!existingBooking) {
+      return res.status(400).json({ status: 'error', message: 'Booking not found or not in BOOKED status' });
+    }
+
+    // Update the booking status to CANCELED
+    const booking = await prisma.userBooking.update({
+      where: { id: bookingId },
+      data: { status: 'CANCELED' },
     });
 
     res.json({ status: 'success', booking });

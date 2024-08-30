@@ -71,13 +71,38 @@ export const userCheckin = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.user;
 
-    // Create a new check-in record
+    // Create a new checkin record
     const checkin = await prisma.checkin.create({
       data: {
         userId: id,
         time: new Date(),
       },
     });
+
+    // Find the user's booking for the current date
+    const today = new Date();
+    const booking = await prisma.userBooking.findFirst({
+      where: {
+        userId: id,
+        bookingDate: {
+          gte: new Date(today.setHours(0, 0, 0, 0)),
+          lte: new Date(today.setHours(23, 59, 59, 999)),
+        },
+        status: 'BOOKED',
+      },
+    });
+
+    // If a booking is found, update its status to CHECKED
+    if (booking) {
+      await prisma.userBooking.update({
+        where: {
+          id: booking.id,
+        },
+        data: {
+          status: 'CHECKED',
+        },
+      });
+    }
 
     res.json({ status: 'success', checkin });
   } catch (error) {

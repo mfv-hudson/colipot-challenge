@@ -24,12 +24,19 @@ enum Role {
 }
 
 model UserBooking {
-  id          Int      @id @default(autoincrement())
+  id          Int           @id @default(autoincrement())
   userId      Int
   seatId      Int
-  bookingDate DateTime @default(now())
-  user        User     @relation(fields: [userId], references: [id])
-  seat        Seat     @relation(fields: [seatId], references: [id])
+  bookingDate DateTime      @default(now())
+  status      BookingStatus @default(BOOKED)
+  user        User          @relation(fields: [userId], references: [id])
+  seat        Seat          @relation(fields: [seatId], references: [id])
+}
+
+enum BookingStatus {
+  BOOKED
+  CANCELED
+  CHECKED
 }
 
 model Department {

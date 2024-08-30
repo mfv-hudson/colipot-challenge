@@ -6,6 +6,8 @@ import qrCodeRoutes from '../routers/qrcode';
 import departmentRouter from '../routers/department';
 import checkinRoutes from '../routers/checkin';
 import seatRoutes from '../routers/seat';
+// import './jobs/booking-cron'
+
 
 const app = express();
 app.use(express.json());
